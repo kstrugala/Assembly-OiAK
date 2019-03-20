@@ -1,0 +1,20 @@
+Zadaniem jest sprawdzenie czy ciąg znaków podany na standardowe wejście
+jest palindromem
+
+Testowanie programu:
+W celu przetestowania uruchamiamy program:
+  ./program
+Wpisujemy ciąg znaków i wciskamy ENTER
+
+Program powinien wypisać TAK jeżeli wyraz jest palnidromem lub NIE gdy nie jest.
+
+Program działa prawidłowo (należy pamiętać, że program rozróznia małe i duże
+litery, więc np. słowo Potop nie zostanie uznane jako palindrom). 
+
+Program działa na zasadzie przepisaniu liter w odwróconej kolejności do drugiego
+buforu (reversed) a następnie porównywaniu w pętli liter w buforach
+input (wprowadzony tekst) i reversed. 
+Jeśli wszystkie znaki będą zgodne to jest to palindrom (program wypisuje
+TAK). Jeśli nie będą się pokrywać program wypisuje NIE.
+
+

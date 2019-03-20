@@ -1,0 +1,39 @@
+Wspólne:
+
+0. wywołać scanf z poziomu asm: scanf(int i, float f, char* c);
+1. wywołać printf z poziomu asm: printf(int i, float f, char* c);
+2. wczytać dane z pliku (open, read) (1+N słów 4-bajtowych: pierwszy bajt -
+liczba liczb, kolejne to liczby) 
+
+3. - napisać w C oraz ASM
+śr TP - funkcję sortującą liczby 4-bajtowe ze znakiem (U2) rosnąco
+cz TP - funkcję sortującą liczby naturalne 4-bajtowe malejąco
+śr TN - funkcję sortującą liczby 4-bajtowe ze znakiem (U2) malejąco
+cz TN - funkcję sortującą liczby naturalne 4-bajtowe rosnąco
+
+4. Zapisać wynik do pliku (binarnie).
+
+4. Zmierzyć czas wykonania a) programu za pomocą `time` oraz b) funkcji za pomocą
+instrukcji RDTSC, c) całości programu za pomocą `gprof`.
+
+5. Przeanalizować i) rozmiar, ii) szybkość działania kodu i iii) kod programu
+wygenerowany przez gcc z opcją '-S' w zależności od poziomu optymalizacji (opcja
+-O)
+
+Kompilacja kodu do postaci ASM:
+gcc -m32 -g -S lab3.c -o lab3c_w_asm.s
+Kompilacja programu z 2 plików:
+gcc -m32 -g prog.c funkcja.s -o prog_wykonywalny
+
+Literatura:
+- http://zak.iiar.pwr.edu.pl/materials/architektura/laboratorium%20AK2/Wprowadzenie%20do%20laboratorium.pdf
+- plus wymieniona literatura do zadania lab3.
+- https://en.wikipedia.org/wiki/Application_binary_interface
+- https://en.wikipedia.org/wiki/X32_ABI
+- https://en.wikipedia.org/wiki/X86_calling_conventions
+- http://zak.iiar.pwr.edu.pl/materials/architektura/laboratorium%20AK2/Dokumentacja/Application%20Binary%20Interface/System%20V%20Application%20Binary%20Interface%20edition%204.1.pdf
+- rozdział 3 (głównie)
+- 'man time'
+- opis instrukcji RDTSC z Intel Software Developers' Manual (tom 2 - opisy
+  instrukcji).
+

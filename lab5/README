@@ -1,0 +1,85 @@
+Program oblicza całkę oznaczoną z funkcji cos(x) metodą prostokątów.
+Program przyjmuje następujące parametry:
+
+   ./prog from to steps
+           ^   ^  ^
+           |   |  +--+  (unsigned) liczba kroków
+           |   |
+           |   +-----+  (double) koniec przedziału całkowania
+           |
+           +---------+  (double) początek przedziału całkowania
+
+Program liczy całkę na kilka sposobów:
+  * funkcja w C
+  * funkcja w asm (używa FPU)
+  * funkcja w asm (używa SSE, operuje na liczbach double)
+  * funkcja w asm (używa SSE, operuje na liczbach float)
+
+Celem laboratorium było porównanie czasu wykonania oraz dokładności
+poszczególnych implementacji funkcji.
+Rozszerzenia wektorowe SSE pozwalają na skrócenie czasu liczenia
+całki metodą prostokątów. Standardowo (funkcja w C i asm)
+podczas jednej iteracji pętli możemy policzyczyć pole 
+jednego prostokąta.
+Używając SSE możemy znacząco zmniejszyć ilość iteracji.
+(możemy obliczyć 2 lub 4 pola w jednej iteracji)
+
+
+Uśrednianie czasu:
+W celu dokładego badania wyników (zniwelowanie wpływu
+działania innych programów, systemu operacyjego na pomiar)
+pomiar został wykonany 10 razy. Z wyników została
+wyciągnięta średnia oraz wartość minimalna.
+
+Pomiary wykonano przy następujących dla następujących
+argumentów:
+  ./prog 0.001 1000 100000
+
+Wyniki:
++--------+----------+----------+-----------+----------+
+|  L.p.  |    C     |   ASM    |   SSE2    |   SSE4   |
++--------+----------+----------+-----------+----------+
+| 1      | 14521408 | 13279696 | 11805852  | 11427828 |
+| 2      | 14521376 | 13279804 | 11787388  | 11428120 |
+| 3      | 14521304 | 13300200 | 11810104  | 11427724 |
+| 4      | 14521204 | 13279736 | 11807240  | 11428180 |
+| 5      | 14521264 | 13279768 | 11810792  | 11422320 |
+| 6      | 14520952 | 13279708 | 11810068  | 11427992 |
+| 7      | 14521916 | 13279708 | 11808992  | 11427520 |
+| 8      | 14521544 | 13279704 | 11791080  | 11427932 |
+| 9      | 14521380 | 13279696 | 11790972  | 11422120 |
+| 10     | 14521016 | 13279704 | 11786820  | 11422136 |
+| ------ | -------- | -------- | --------- | -------- |
+| AVG    | 14521336 | 13281772 | 11800931  | 11426187 |
+| ------ | -------- | -------- | --------- | -------- |
+| MIN    | 14520952 | 13279696 | 11786820  | 11422120 |
++--------+----------+----------+-----------+----------+
+
+Dla identycznych parametrów jak w przypadku
+pomiaru czasu program daje następujące wyniki obliczeń:
+
+Funkcja C:
+	Result: 0.823685, time elapsed: 14521512 
+Funkcja ASM:
+	Result: 0.823685, time elapsed: 13298404 
+Funkcja SSE2:
+	Result: 0.823685, time elapsed: 11787604 
+Funkcja SSE4:
+	Result: 0.823669, time elapsed: 11427020 
+
+Całka oznaczona z cos(x) w przedziale
+od 0.001 do 10000 obliczona za pomocą 
+strony WolframAlpha wynosi: 0.82588
+
+Po zwiększeniu ilości kroków do: 10000000
+Program daje następujące wyniki
+Funkcja C:
+	Result: 0.825858, time elapsed: 1451951504 
+Funkcja ASM:
+	Result: 0.825858, time elapsed: 1328191376 
+Funkcja SSE2:
+	Result: 0.825858, time elapsed: 1176923260 
+Funkcja SSE4:
+	Result: 0.825825, time elapsed: 1142404664 
+
+Są one zbliżone do wyniku uzyskanego z pomocą WolframAplha. 

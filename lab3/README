@@ -1,0 +1,174 @@
+Program ma za zadanie wczytać i posortować liczby 4-bajtowe ze znakiem (U2)
+rosnąco oraz zapisać je do pliku. Dodatkowo program ma umożliwić pomiar czasu
+wysokiej rozdzielczości (z wykorzystaniem RDTSC). Do sortowania wykorzystywana
+jest funkcja asc_sort() (z pliku sort.c). Korzysta ona z algorytmu sortowania
+bąbelkowego.
+Mieliśmy wykonać następujące modyfikacje:
+1. Wczytać dane za pomocą funkcji read(int fd, void *buf, size_t count)
+   gdzie:
+       fd    - strumień STDIN - 1
+      *buf   - początek bufora (pierwszy element tablicy) do której wczytujemy
+       count - wielkość bufora (w bajtach)
+   
+   Format pliku binarnego: 1+N liczb 4-bajtowych, pierwszy bajt - liczba liczb,
+                           kolejne liczby
+
+2. Napisać funkcje w porównującą liczby w C oraz ASM
+   Funkcja w C (plik C_compare.c):
+   Funkcja przyjmuje dwa argumenty całkowite (int) - a, b
+   Zwraca liczbę całkowitą:
+       Jeżeli a > b zwraca 1
+       W przeciwnym wypadku 0
+   
+   Funkcja w ASM:
+   Wykonuje dokładnie to samo co funkcja w C
+   Parametry funkcji (a, b) są umieszczane na stosie.
+   
+   Stos (ESP):
+       
+           b        - 8(%esp)
+           a        - 4(%esp)
+     Return address - (%esp)
+   
+   Jednak wykorzystanie bezpośrednio stosu niesie ze sobą ryzyko. 
+   Jeżeli w funkcji dokonwano operacji na stosie (push, pop) to adresowanie
+   ulegnie zmianie.  Aby tego uniknąć wykonuje się następujące operacje:
+  
+   pushl %ebp # wrzuć ebp na stos
+   movl %esp, %ebp  # skopiuj zawartość %esp do ebp   
+ 
+   A na końcu funkcji przenosi się %ebp do %esp oraz odzyskuje się %ebp:
+
+    movl %ebp, %esp 
+    popl %ebp
+
+  Struktura (EBP):
+
+           b        - 12(%ebp)
+           a        - 8(%ebp)
+     Return address - 4(%ebp)
+      Poprzednia
+       zawartość    -  (%ebp)
+         EBP
+
+  Funkcja wyciąga argumenty ze stosu i umieszcza je w rejestrach %eax - a,
+  %ebx -b.
+  Następnie dokonuje porównania:
+  cmp %eax, %ebx # Porównaj
+  Funkcja używa mnemonika jl (jump less)  
+     
+    jl r1 # jeżeli %ebx < %eax to wykonaj skok do etykiety r1    
+ 
+  Oraz mnemonika jmp - skok bezwarunkowy
+    
+    jmp r0 # skok do etykiety r0
+ 
+     
+    Kod w etykiecie r1 ustawia zawartość rejestru %eax na 1
+    Kod w etykiecie r0 ustawia zawartość rejestru %eax na 0
+    
+    Rejestr %eax jest zwracanym wynikiem funkcji
+
+  Ostanim mnemonikiem użytym w funkcji jest ret (zwraca sterowanie do programu
+  głównego)
+
+3. Zapisać wynik do pliku (binarnie). W celu zapisu do pliku użyłem funkcji
+   write(int fd, const void *buf, size_t count);
+   gdzie:
+	fd    - strumień STOUT - 0
+      *buf   - początek bufora (pierwszy element tablicy) z którego zapisujemy
+       count - wielkość tablicy
+   A następnie przekierowałem strumień do pliku, w który ma być wynik
+   (np. cat 10.bin | ./main > wynik.txt)
+4. Wykonać pomiary czasu 3 metodami:
+   a) Za pomocą time
+   
+   Aby wykonać pomiar za pomocą time należy wydać polecenie:
+   
+      time ./nazwa_programu do pomiaru czasu 
+      (np. time cat 10.bin | ./main)
+
+   Program zwraca wyniki w postaci:
+   real	0m0.024s - czas jaki upłynął od uruchomienia do zakończenia programu 
+   user	0m0.000s - czas poświęcony na pracę procesora (tzw. user-mode)
+   sys	0m0.000s - czas poświęcony przez procesor na komunikację z jądrem systemu
+   Pomiary za pomocą time nie są tak dokładne jak za pomocą RDTSC (gdyż
+   uwzględniają czas wczytywania i zapisywania (co przy dużej ilości danych
+   może znacznie wpłynąć na wynik pomiaru))
+
+   Pomiary dla pików:
+   10.bin      - 0m0.001s (real)
+   100.bin     - 0m0.032s (real)
+   1000.bin    - 0m0.007s (real) 0m0.010s (user)
+   1000000.bin - 43m59.141s (real) 43m56.400s (user) 0m0.870s (sys)
+   
+   b) Za pomocą RDTSC (Aby wyświetlić wyniki pomiaru RDTSC należy wywołać
+                       program z parametrem -t (--time))
+   
+   Mnemonik RDTSC ładuje wartość time-stamp coutera do rejestrów EDX i EAX.
+   Starsze 32-bity ładowane są do rejestru EDX, młodsze 32-bity do EAX.   
+   
+   Time-stamp couter jest inkrementowany o przy każdym takcie procesora. 
+   Po restarcie komputera jest resetowany do wartości 0.   
+   
+   Wywołanie kodu ASM w C:
+   asm volatile ("rdtsc" : "=a" (lo), "=d" (hi));
+                             ^          ^
+                             |          |_ Zawartość EDX trafi do zmiennej hi
+                             |
+                             |_ Zawartość EAX trafi do zmiennej lo
+                             
+   Aby "odtworzyć" time-stamp counter z hi i lo należy wykonać:
+   (((unsigned long long) hi) << 32) | ((unsigned long long) lo);
+                              ^      ^
+                              |      |_ alterantywa bitowa (OR)
+                              |_ Przesunięcie bitowe w lewo
+   Pomiary dla pików:
+   10.bin      - 3260
+   100.bin     - 263280
+   1000.bin    - 22123412
+   1000000.bin - 10539221856656
+
+   c) Za pomocą profilera
+      Aby wykonać pomiary za pomocą profilera należy odpowiednio skompilować
+      program: 
+        gcc-m32  -g main.c sort.c compare.s -o main -pg
+      Następnie uruchomić program.
+      Po wykonaniu się programu wygenerowany zostanie plik gmon.out.
+      Kolejnym krokiem jest uruchomienie profilera i zapisanie wyników do pliku.  
+      gprof main gmon.out > gprof.txt
+     
+      Profiler pozwala ustalić ile czasu zajęło wykonywanie poszczególnych części
+      programu. Fragment wydruku pliku gprof.txt:
+
+	        %   cumulative   self              self     total           
+	 time   seconds   seconds    calls  Ks/call  Ks/call  name    
+	 56.25   1118.77  1118.77        1     1.12     1.12  asc_sort
+	 31.74   1750.12   631.35                             compare
+	  7.28   1894.83   144.71                             r1
+	  4.71   1988.49    93.67                             r0
+	  0.03   1989.04     0.55                             after
+	  0.00   1989.04     0.00        2     0.00     0.00  tm
+
+ 
+   Z pomiarów wynika, że algorytm sortowania bąbelkowego ma złożoność O(n^2)
+   Pomiary dokonane za pomocą RDTSC są najdokładniejsze (nie uwzględniają czasu
+   wczytywania danych oraz ich wypisywania)
+
+5. Ostatnim zadaniem było przeanalizowanie wpływu optymalizacji
+   podczas kompilacji na:
+     a) Rozmiar programu - Rozmiar programu nie zmieniał się 
+                           (nawet z opcją -oS (optymalizacja wielkości pliku))
+     b) Szybkość działania programu (pomiar wykonany z pomocą RDTSC)
+        Badane było działanie programu na zbiorze 1000.bin
+        Wyniki dla optymalizacji od -o0 do -o4 oraz -oS były porównywalne.
+     c) Analiza kodu programu (Kod generowany dla pliku sort.c)
+        Aby wygenerować kod ASM z pliku C należy użyć polecenia:
+
+         gcc -m32 -ox -S  sort.c
+                    ^
+                    |_ Poziom optymalizacji
+
+        Wygenerowany kod w ASM nie różnił  się w zależności od stopnia
+        optymalizacji (gcc generował identyczny kod).
+

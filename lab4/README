@@ -1,0 +1,161 @@
+Program liczy całkę z cos(x) metodą prostokątów. Program pobiera parametry z linii poleceń:
+	./main a b n
+	gdzie:
+		a - początek przedziału
+		b - koniec przedziału
+		n - ilość prostokątów
+
+Funkcja main ma dwa argumenty: int argc i char * argv[]. Pierwszy z nich oznacza ilość argumentów przekazanych
+do programu, drugi to wskaźnik na tablicę zawierającą wszystkie przekazane argumenty (pierwszy z nich (index 0)
+jest zawsze nazwa programu.
+
+Do liczenia całki używana jest funkcja integrate(double a, double b, int n). Do obliczania wartości funkcji
+cos(x) wykorzystuje funkcję double cos(double x) (napisaną w Assemblerze - plik cos.s)
+
+Najważniejsze instrukcje wykorzystane w funkcji:
+	fldl 8(%ebp) - załaduj argument funkcji do rejestru ST(0)
+	fcos	     - policz cos(ST(0)) i zapisz wynik do ST(0)
+	fstl result  - wyciąga wartość z ST(0) i umieszcza ją w miejscu w pamięci oznaczonym etykietą result
+	movl result, %eax - pozwala zwrócić wyniku funkcji	
+
+Sekcja data pliku cos.s:
+	.data
+	     result:	
+  	        .double 0.0
+
+Do zmiany sposobu zaokrąglenia oraz precyzji służą funkcje: void set_RC(int RC) oraz void set_PC(int PC).
+Używają one funkcji uint16_t get_fpu oraz void set_fpu(uint16_t ctrlWrd).
+Pierwsza pozwala na odczytanie słowa kontrolnego. A druga na jego ustawienie (za pomocą mnemonika fldcw).
+
+Funkcje set_RC oraz set_PC działają w sposób analogiczny. Pobierają słowo kontrolne (za pomocą get_FPU()).
+Modyfikują je (za pomocą operacji bitowych & - AND i | - OR) zależnie od zadanego parametru i ustawiają je za pomocą funkcji set_FPU(ctrlWrd).
+
+Funkcja set_PC wpływa na bity 8-9 słowa kontrolnego, natmiast funkcja set_RC na bity 10-11.
+
+Parametry funkcji set_PC(int PC):
+   0 - SINGLE PRECISION          - 24 bity  (00B)
+   2 - DOUBLE PRECISION          - 53 bity  (10B)
+   3 - DOUBLE EXTENDED PRECISION - 64 bity  (11B)
+
+Parametry funkcji set_RC(int RC):
+   0 - Round to nearest (even)       - (00B) 
+   1 - Round down (toward −∞)        - (01B)
+   2 - Round up (toward +∞)          - (10B)
+   3 - Round toward zero (Truncate)  - (11B)
+
+Do pomiaru czasu używam funkcji unsigned long long tm() z laboratorium 3.
+Zasada działania:
+   Mnemonik RDTSC ładuje wartość time-stamp coutera do rejestrów EDX i EAX.
+   Starsze 32-bity ładowane są do rejestru EDX, młodsze 32-bity do EAX.   
+   
+   Time-stamp couter jest inkrementowany o przy każdym takcie procesora. 
+   Po restarcie komputera jest resetowany do wartości 0.   
+ 
+   Wywołanie kodu ASM w C:
+   asm volatile ("rdtsc" : "=a" (lo), "=d" (hi));
+                             ^          ^
+                             |          |_ Zawartość EDX trafi do zmiennej hi
+                             |
+                             |_ Zawartość EAX trafi do zmiennej lo
+                             
+   Aby "odtworzyć" time-stamp counter z hi i lo należy wykonać:
+   (((unsigned long long) hi) << 32) | ((unsigned long long) lo);
+                              ^      ^
+                              |      |_ alterantywa bitowa (OR)
+                              |_ Przesunięcie bitowe w lewo
+
+Aby korzystać z jednostki zmiennoprzecinkowej należy kompilować program z parametrem -mfpmath=387:
+   gcc -m32 -mfpmath=387  main.c integrate.c set_fpu.s get_fpu.s cos.s -o main
+
+Program działa prawidłowo. Wykonałem pomiary dla różnych wartości a, b i n a wyniki porównałem z wynikami 
+ze strony wolframalpha.com
+
+Wyniki (dla a=-0.1, b=1.57 (~pi/2)):
+
+╔══════════╦═════════════════╦════════════╦═══════════╦══════════════════════════════════════════════════════════╗
+║    N     ║       PC        ║     RC     ║   TIME    ║                          RESULT                          ║
+╠══════════╬═════════════════╬════════════╬═══════════╬══════════════════════════════════════════════════════════╣
+║ 10       ║ SINGLE          ║ To nearest ║ 5480      ║ 1.014259457588195800781250000000000000000000000000000000 ║
+║ 100      ║ SINGLE          ║ To nearest ║ 51544     ║ 1.091506004333496093750000000000000000000000000000000000 ║
+║ 1000     ║ SINGLE          ║ To nearest ║ 533132    ║ 1.099002480506896972656250000000000000000000000000000000 ║
+║ 10000    ║ SINGLE          ║ To nearest ║ 5118512   ║ 1.099749088287353515625000000000000000000000000000000000 ║
+║ 100000   ║ SINGLE          ║ To nearest ║ 51913148  ║ 1.099821209907531738281250000000000000000000000000000000 ║
+║ 1000000  ║ SINGLE          ║ To nearest ║ 512023168 ║ 1.099715828895568847656250000000000000000000000000000000 ║
+║ ________ ║ _______________ ║ __________ ║ _________ ║ ________________________________________________________ ║
+║ 10       ║ DOUBLE          ║ To nearest ║ 5244      ║ 1.014259452372987757584610335470642894506454467773437500 ║
+║ 100      ║ DOUBLE          ║ To nearest ║ 51308     ║ 1.091505902970051344880175747675821185111999511718750000 ║
+║ 1000     ║ DOUBLE          ║ To nearest ║ 511968    ║ 1.099002680423068145643128445954062044620513916015625000 ║
+║ 10000    ║ DOUBLE          ║ To nearest ║ 5118312   ║ 1.099750080668036922304509062087163329124450683593750000 ║
+║ 100000   ║ DOUBLE          ║ To nearest ║ 51206076  ║ 1.099824797917650975875858421204611659049987792968750000 ║
+║ 1000000  ║ DOUBLE          ║ To nearest ║ 511939320 ║ 1.099832269414890095760028998483903706073760986328125000 ║
+║ ________ ║ _______________ ║ __________ ║ _________ ║ ________________________________________________________ ║
+║ 10       ║ DOUBLE EXTENDED ║ To nearest ║ 5264      ║ 1.014259452372987757584610335470642894506454467773437500 ║
+║ 100      ║ DOUBLE EXTENDED ║ To nearest ║ 51312     ║ 1.091505902970051122835570822644513100385665893554687500 ║
+║ 1000     ║ DOUBLE EXTENDED ║ To nearest ║ 524496    ║ 1.099002680423068145643128445954062044620513916015625000 ║
+║ 10000    ║ DOUBLE EXTENDED ║ To nearest ║ 5118308   ║ 1.099750080668036478215299212024547159671783447265625000 ║
+║ 100000   ║ DOUBLE EXTENDED ║ To nearest ║ 51208700  ║ 1.099824797917651864054278121329843997955322265625000000 ║
+║ 1000000  ║ DOUBLE EXTENDED ║ To nearest ║ 511951664 ║ 1.099832269414890095760028998483903706073760986328125000 ║
+║ ________ ║ _______________ ║ __________ ║ _________ ║ ________________________________________________________ ║
+║ 10       ║ SINGLE          ║ Round down ║ 5296      ║ 1.014259219169616699218750000000000000000000000000000000 ║
+║ 100      ║ SINGLE          ║ Round down ║ 51368     ║ 1.091502547264099121093750000000000000000000000000000000 ║
+║ 1000     ║ SINGLE          ║ Round down ║ 511992    ║ 1.098970413208007812500000000000000000000000000000000000 ║
+║ 10000    ║ SINGLE          ║ Round down ║ 5118340   ║ 1.099432706832885742187500000000000000000000000000000000 ║
+║ 100000   ║ SINGLE          ║ Round down ║ 51295312  ║ 1.096661090850830078125000000000000000000000000000000000 ║
+║ 1000000  ║ SINGLE          ║ Round down ║ 513243320 ║ 1.069543361663818359375000000000000000000000000000000000 ║
+║ ________ ║ _______________ ║ __________ ║ _________ ║ ________________________________________________________ ║
+║ 10       ║ DOUBLE          ║ Round down ║ 5244      ║ 1.014259452372987313495400485408026725053787231445312500 ║
+║ 100      ║ DOUBLE          ║ Round down ║ 51308     ║ 1.091505902970045793765052621893119066953659057617187500 ║
+║ 1000     ║ DOUBLE          ║ Round down ║ 511936    ║ 1.099002680423010414045847937813960015773773193359375000 ║
+║ 10000    ║ DOUBLE          ║ Round down ║ 5132212   ║ 1.099750080667453833171975929872132837772369384765625000 ║
+║ 100000   ║ DOUBLE          ║ Round down ║ 51507524  ║ 1.099824797911741480760383637971244752407073974609375000 ║
+║ 1000000  ║ DOUBLE          ║ Round down ║ 512184084 ║ 1.099832269355678349143090599682182073593139648437500000 ║
+║ ________ ║ _______________ ║ __________ ║ _________ ║ ________________________________________________________ ║
+║ 10       ║ DOUBLE EXTENDED ║ Round down ║ 5256      ║ 1.014259452372987313495400485408026725053787231445312500 ║
+║ 100      ║ DOUBLE EXTENDED ║ Round down ║ 51328     ║ 1.091505902970045349675842771830502897500991821289062500 ║
+║ 1000     ║ DOUBLE EXTENDED ║ Round down ║ 511936    ║ 1.099002680423010414045847937813960015773773193359375000 ║
+║ 10000    ║ DOUBLE EXTENDED ║ Round down ║ 5118312   ║ 1.099750080667454055216580854903440922498703002929687500 ║
+║ 100000   ║ DOUBLE EXTENDED ║ Round down ║ 51201824  ║ 1.099824797911741258715778712939936667680740356445312500 ║
+║ 1000000  ║ DOUBLE EXTENDED ║ Round down ║ 512010260 ║ 1.099832269355678127098485674650873988866806030273437500 ║
+║ ________ ║ _______________ ║ __________ ║ _________ ║ ________________________________________________________ ║
+║ 10       ║ SINGLE          ║ Round up   ║ 5236      ║ 1.014259696006774902343750000000000000000000000000000000 ║
+║ 100      ║ SINGLE          ║ Round up   ║ 51300     ║ 1.091508865356445312500000000000000000000000000000000000 ║
+║ 1000     ║ SINGLE          ║ Round up   ║ 511928    ║ 1.099033951759338378906250000000000000000000000000000000 ║
+║ 10000    ║ SINGLE          ║ Round up   ║ 5118288   ║ 1.100068092346191406250000000000000000000000000000000000 ║
+║ 100000   ║ SINGLE          ║ Round up   ║ 51238700  ║ 1.103015422821044921875000000000000000000000000000000000 ║
+║ 1000000  ║ SINGLE          ║ Round up   ║ 528361836 ║ 1.133077979087829589843750000000000000000000000000000000 ║
+║ ________ ║ _______________ ║ __________ ║ _________ ║ ________________________________________________________ ║
+║ 10       ║ DOUBLE          ║ Round up   ║ 5260      ║ 1.014259452372987979629215260501950979232788085937500000 ║
+║ 100      ║ DOUBLE          ║ Round up   ║ 51308     ║ 1.091505902970057118039903798489831387996673583984375000 ║
+║ 1000     ║ DOUBLE          ║ Round up   ║ 511952    ║ 1.099002680423128985864877904532477259635925292968750000 ║
+║ 10000    ║ DOUBLE          ║ Round up   ║ 5132728   ║ 1.099750080668637552960831271775532513856887817382812500 ║
+║ 100000   ║ DOUBLE          ║ Round up   ║ 51232388  ║ 1.099824797923577346381307506817393004894256591796875000 ║
+║ 1000000  ║ DOUBLE          ║ Round up   ║ 527635608 ║ 1.099832269474042556467452413926366716623306274414062500 ║
+║ ________ ║ _______________ ║ __________ ║ _________ ║ ________________________________________________________ ║
+║ 10       ║ DOUBLE EXTENDED ║ Round up   ║ 5260      ║ 1.014259452372988201673820185533259063959121704101562500 ║
+║ 100      ║ DOUBLE EXTENDED ║ Round up   ║ 51312     ║ 1.091505902970057118039903798489831387996673583984375000 ║
+║ 1000     ║ DOUBLE EXTENDED ║ Round up   ║ 511936    ║ 1.099002680423128985864877904532477259635925292968750000 ║
+║ 10000    ║ DOUBLE EXTENDED ║ Round up   ║ 5118316   ║ 1.099750080668637552960831271775532513856887817382812500 ║
+║ 100000   ║ DOUBLE EXTENDED ║ Round up   ║ 51212500  ║ 1.099824797923577346381307506817393004894256591796875000 ║
+║ 1000000  ║ DOUBLE EXTENDED ║ Round up   ║ 511935620 ║ 1.099832269474042778512057338957674801349639892578125000 ║
+║ ________ ║ _______________ ║ __________ ║ _________ ║ ________________________________________________________ ║
+║ 10       ║ SINGLE          ║ Truncate   ║ 5236      ║ 1.014259219169616699218750000000000000000000000000000000 ║
+║ 100      ║ SINGLE          ║ Truncate   ║ 51304     ║ 1.091502547264099121093750000000000000000000000000000000 ║
+║ 1000     ║ SINGLE          ║ Truncate   ║ 511956    ║ 1.098970413208007812500000000000000000000000000000000000 ║
+║ 10000    ║ SINGLE          ║ Truncate   ║ 5118272   ║ 1.099432706832885742187500000000000000000000000000000000 ║
+║ 100000   ║ SINGLE          ║ Truncate   ║ 51241228  ║ 1.096661090850830078125000000000000000000000000000000000 ║
+║ 1000000  ║ SINGLE          ║ Truncate   ║ 511980644 ║ 1.069543361663818359375000000000000000000000000000000000 ║
+║ ________ ║ _______________ ║ __________ ║ _________ ║ ________________________________________________________ ║
+║ 10       ║ DOUBLE          ║ Truncate   ║ 5240      ║ 1.014259452372987313495400485408026725053787231445312500 ║
+║ 100      ║ DOUBLE          ║ Truncate   ║ 51308     ║ 1.091505902970045793765052621893119066953659057617187500 ║
+║ 1000     ║ DOUBLE          ║ Truncate   ║ 511936    ║ 1.099002680423010414045847937813960015773773193359375000 ║
+║ 10000    ║ DOUBLE          ║ Truncate   ║ 5118308   ║ 1.099750080667453833171975929872132837772369384765625000 ║
+║ 100000   ║ DOUBLE          ║ Truncate   ║ 51202188  ║ 1.099824797911741480760383637971244752407073974609375000 ║
+║ 1000000  ║ DOUBLE          ║ Truncate   ║ 511970764 ║ 1.099832269355678349143090599682182073593139648437500000 ║
+║ ________ ║ _______________ ║ __________ ║ _________ ║ ________________________________________________________ ║
+║ 10       ║ DOUBLE EXTENDED ║ Truncate   ║ 5244      ║ 1.014259452372987313495400485408026725053787231445312500 ║
+║ 100      ║ DOUBLE EXTENDED ║ Truncate   ║ 51312     ║ 1.091505902970045349675842771830502897500991821289062500 ║
+║ 1000     ║ DOUBLE EXTENDED ║ Truncate   ║ 511940    ║ 1.099002680423010414045847937813960015773773193359375000 ║
+║ 10000    ║ DOUBLE EXTENDED ║ Truncate   ║ 5118312   ║ 1.099750080667454055216580854903440922498703002929687500 ║
+║ 100000   ║ DOUBLE EXTENDED ║ Truncate   ║ 51201792  ║ 1.099824797911741258715778712939936667680740356445312500 ║
+║ 1000000  ║ DOUBLE EXTENDED ║ Truncate   ║ 511959080 ║ 1.099832269355678127098485674650873988866806030273437500 ║
+╚══════════╩═════════════════╩════════════╩═══════════╩══════════════════════════════════════════════════════════╝

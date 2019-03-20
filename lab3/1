@@ -1,0 +1,189 @@
+	.file	"sort.c"
+	.text
+.globl asc_sort
+	.type	asc_sort, @function
+asc_sort:
+	pushl	%ebp
+	movl	%esp, %ebp
+	subl	$40, %esp
+	movl	$0, -12(%ebp)
+	movl	$0, -16(%ebp)
+	movl	$0, -20(%ebp)
+	movl	8(%ebp), %eax
+	subl	$1, %eax
+	movl	%eax, -12(%ebp)
+	jmp	.L2
+.L6:
+	movl	$0, -16(%ebp)
+	jmp	.L3
+.L5:
+	movl	-16(%ebp), %eax
+	addl	$1, %eax
+	sall	$2, %eax
+	addl	12(%ebp), %eax
+	movl	(%eax), %eax
+	movl	%eax, %edx
+	movl	-16(%ebp), %eax
+	sall	$2, %eax
+	addl	12(%ebp), %eax
+	movl	(%eax), %eax
+	movl	%edx, 4(%esp)
+	movl	%eax, (%esp)
+	call	compare
+	testl	%eax, %eax
+	je	.L4
+	movl	-16(%ebp), %eax
+	sall	$2, %eax
+	addl	12(%ebp), %eax
+	movl	(%eax), %eax
+	movl	%eax, -20(%ebp)
+	movl	-16(%ebp), %eax
+	sall	$2, %eax
+	addl	12(%ebp), %eax
+	movl	-16(%ebp), %edx
+	addl	$1, %edx
+	sall	$2, %edx
+	addl	12(%ebp), %edx
+	movl	(%edx), %edx
+	movl	%edx, (%eax)
+	movl	-16(%ebp), %eax
+	addl	$1, %eax
+	sall	$2, %eax
+	addl	12(%ebp), %eax
+	movl	-20(%ebp), %edx
+	movl	%edx, (%eax)
+.L4:
+	addl	$1, -16(%ebp)
+.L3:
+	movl	-16(%ebp), %eax
+	cmpl	-12(%ebp), %eax
+	jb	.L5
+	subl	$1, -12(%ebp)
+.L2:
+	cmpl	$0, -12(%ebp)
+	jne	.L6
+	leave
+	ret
+	.size	asc_sort, .-asc_sort
+	.section	.rodata
+.LC0:
+	.string	"%d != %d \n"
+	.text
+.globl test_asc_sort
+	.type	test_asc_sort, @function
+test_asc_sort:
+	pushl	%ebp
+	movl	%esp, %ebp
+	pushl	%edi
+	pushl	%ebx
+	subl	$192, %esp
+	movl	$10, -20(%ebp)
+	movl	$10, -64(%ebp)
+	movl	$11, -60(%ebp)
+	movl	$0, -56(%ebp)
+	movl	$4, -52(%ebp)
+	movl	$5, -48(%ebp)
+	movl	$3, -44(%ebp)
+	movl	$12, -40(%ebp)
+	movl	$12, -36(%ebp)
+	movl	$99, -32(%ebp)
+	movl	$1, -28(%ebp)
+	movl	$0, -104(%ebp)
+	movl	$1, -100(%ebp)
+	movl	$3, -96(%ebp)
+	movl	$4, -92(%ebp)
+	movl	$5, -88(%ebp)
+	movl	$10, -84(%ebp)
+	movl	$11, -80(%ebp)
+	movl	$12, -76(%ebp)
+	movl	$12, -72(%ebp)
+	movl	$99, -68(%ebp)
+	movl	$5, -24(%ebp)
+	leal	-144(%ebp), %ebx
+	movl	$0, %eax
+	movl	$10, %edx
+	movl	%ebx, %edi
+	movl	%edx, %ecx
+	rep stosl
+	movl	$10, -144(%ebp)
+	movl	$12, -140(%ebp)
+	movl	$100, -136(%ebp)
+	movl	$99, -132(%ebp)
+	movl	$1, -128(%ebp)
+	leal	-184(%ebp), %ebx
+	movl	$0, %eax
+	movl	$10, %edx
+	movl	%ebx, %edi
+	movl	%edx, %ecx
+	rep stosl
+	movl	$1, -184(%ebp)
+	movl	$10, -180(%ebp)
+	movl	$12, -176(%ebp)
+	movl	$99, -172(%ebp)
+	movl	$100, -168(%ebp)
+	leal	-64(%ebp), %eax
+	movl	%eax, 4(%esp)
+	movl	-20(%ebp), %eax
+	movl	%eax, (%esp)
+	call	asc_sort
+	leal	-144(%ebp), %eax
+	movl	%eax, 4(%esp)
+	movl	-24(%ebp), %eax
+	movl	%eax, (%esp)
+	call	asc_sort
+	movl	$0, -12(%ebp)
+	jmp	.L9
+.L11:
+	movl	-12(%ebp), %eax
+	movl	-64(%ebp,%eax,4), %edx
+	movl	-12(%ebp), %eax
+	movl	-104(%ebp,%eax,4), %eax
+	cmpl	%eax, %edx
+	je	.L10
+	movl	-12(%ebp), %eax
+	movl	-104(%ebp,%eax,4), %ecx
+	movl	-12(%ebp), %eax
+	movl	-64(%ebp,%eax,4), %edx
+	movl	$.LC0, %eax
+	movl	%ecx, 8(%esp)
+	movl	%edx, 4(%esp)
+	movl	%eax, (%esp)
+	call	printf
+.L10:
+	addl	$1, -12(%ebp)
+.L9:
+	movl	-12(%ebp), %eax
+	cmpl	-20(%ebp), %eax
+	jb	.L11
+	movl	$0, -16(%ebp)
+	jmp	.L12
+.L14:
+	movl	-16(%ebp), %eax
+	movl	-144(%ebp,%eax,4), %edx
+	movl	-16(%ebp), %eax
+	movl	-184(%ebp,%eax,4), %eax
+	cmpl	%eax, %edx
+	je	.L13
+	movl	-16(%ebp), %eax
+	movl	-104(%ebp,%eax,4), %ecx
+	movl	-16(%ebp), %eax
+	movl	-64(%ebp,%eax,4), %edx
+	movl	$.LC0, %eax
+	movl	%ecx, 8(%esp)
+	movl	%edx, 4(%esp)
+	movl	%eax, (%esp)
+	call	printf
+.L13:
+	addl	$1, -16(%ebp)
+.L12:
+	movl	-16(%ebp), %eax
+	cmpl	-24(%ebp), %eax
+	jb	.L14
+	addl	$192, %esp
+	popl	%ebx
+	popl	%edi
+	popl	%ebp
+	ret
+	.size	test_asc_sort, .-test_asc_sort
+	.ident	"GCC: (Ubuntu 4.4.3-4ubuntu5.1) 4.4.3"
+	.section	.note.GNU-stack,"",@progbits

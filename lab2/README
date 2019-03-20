@@ -1,0 +1,85 @@
+Program ma za zadanie wczytać dane ze standardowego wejścia (STDIN) w formacie
+1B1Bn*mB  (1-bajtowa liczba liczb n,  1-bajtowa długość liczb m,
+ n m-bajtowych liczb w konwencji Little Endian), dodać je do siebie oraz wypisać wynik na STDOUT
+ w postaci binarnej.
+
+W celu przetestowania programu należy użyć polecenia:
+	cat nazwa_pliku.bin | ./program | hexdump -e '16/1 "%02x " "\n" '
+Polecenie to pozwoli przekazać zawartość pliku do programu, a następnie wynik działania programu (wypisany na standardowe wyjście) zostaje przekazany do programu hexdump. Parametry przekazane do programu hexdump pozwalają na sformatowanie jego wyjścia. Wyświetli on liczby w postaci szesnastkowej, każda liczba to 1 bajt. Kolene bajty są oddzielone od siebie spacją. 
+Na przykład  polecenie:
+	cat nmdane.small.bin | hexdump -e '16/1 "%02x " "\n" '
+Daje następujący wynik:
+	03 02 10 27 e8 03 64 00                      
+gdzie:  ^  ^  ----- ----- -----  
+`	|  |    ^     ^     ^
+	n  m    |     |     |
+	1B 1B 10000  1000  100
+	^  ^
+        |  |_ o długości 2 bajtów
+        |
+	3 liczby
+Można również skorzystać z reguł zdefiniowanych w Makfile:
+	make test-small - wywoła powyższe polecenie dla pliku nmdane.small.bin
+        make test       - wywoła powyższe polecenie dla pliku nmdane.bin
+        make test-big   - wywoła powyższe polecenie dla pluku nmdane.big.bin 
+W pliku Makefile są również zdefiniowane reguły pozwalające wyświetlić zawartość tych plików (z pomocą hexdump-a). Są to odpowiednio:
+	make showData-small
+	make showData
+	make showData-big
+
+Program najpierw wczytuje dane za pomocą wywołania systemowego (sys_read).
+W celu wczytania danych trzeba w odpowiednich rejestrach umieścić odpowiednie informacje:
+	EAX - numer wywołania systemowego (3)
+	EBX - strumień STDIN (0)
+	ECX - adres miejsca w pamięci do którego wczytujemy
+	EDX - wielkość bufora
+Aby wykonać wywołanie należy skorzystać z przerwania (int $0x80).
+
+Przy takich danych wejściowych bufor musi mieć wielkość: 2*8 + 2^8*2^8 (ponieważ m i n są 1 bajtowe więc potrzebujemy miejsca na nie i n*m bajtów na liczby).
+
+Następnym zadaniem programu jest wyciągnięcie liczb m i n do rejestrów 
+(n - %al, m - %ah).
+
+Mając te dane program wyciąga kopiuje pierwszą liczbę zmiennej (miejsca w pamięci) result. Będzie tam przechowywany wynik operacji dodawania.
+
+Następnie wykonuje się pętla (all_num_loop), która ma się wykonać n-1 razy.
+W tej pętli znajdują się dwie kolejne pętle.
+Pierwsza (loop) ma za zadanie wczytać kolejną liczbę do zmiennej (miejsca w pamięci) number.
+Pętla przepisuje liczbę w następujący sposób:
+	movb input(, %edi, 1), %cl
+	movb %cl, number(, %esi,1)
+gdzie:
+	EDI - iterator dla zmiennej input
+	ESI - iterator dla number
+Pętla działa na zasadzie skoku warunkowego:
+Na początku do rejestru %bl zostaje przepisana długość liczby w bajtach. Z każdym przebiegiem pętli jest ona dekrementowana (decb %bl). Jest sprawdzany warunek:
+      cmp $0, %bl
+A następnie wykonywany skok warunkowy jeżeli w %bl nie znajduje się wartość 0 (jnz - jump not zero) 
+      jnz loop
+
+Kolejna (add_loop) odpowiada za dodawanie result (dotychczasowy wynik) + number (obecnie wczytana liczba).
+Jeśli chodzi o sposób jej zatrzymania to jest on analgiczny jak w przypadku wczytywania liczby.
+Przed jej wykonaniem czyszczona jest flaga CF (carry flag) mnemonikiem clc.
+Program pobiera w pętli bajt z odpowiedniej pozycji (indeksu) z number (do rejestru %cl) oraz z result (do rejestru %ch)
+Następnie dodaje je za pomocą:
+	adc %cl, %ch  (add with carry)
+I umieszcza wynik (przechowywany w rejestrze %ch) pod odpowiednim (tym samym z którego pobrał) indeksem zmiennej result.
+Następnie proces jest powtarzany (pętla all_num_loop), aż program doda wszystkie liczby.
+
+Na koniec program wypisuje za pomocą wywołania systemowego (sys_write) zmienną result.
+Wypisanie jest bardzo podobne do dodawnia. W rejestrach umieszcza sie:
+        EAX - numer wywołania systemowego (4)
+        EBX - strumień STDOUT (1)
+        ECX - adres miejsca w pamięci, z którego wypisujemy
+        EDX - długość informacji, którą wypisujemy
+Aby wykonać wywołanie należy skorzystać z przerwania (int $0x80).
+Wypisana liczba jest zapisana w konwencji Little Endian.
+
+Wyniki testowania:
+Program działa prawidłowo dla dwóch pierwszych przypadków testowych 
+(nmdane.small.bin oraz nmdane.bin).
+Program nie działa prawidłowo dla pliku nmdane.big.bin. Program wyświetla następujący wynik:
+59 93 09 4a e9 df 89 97
+Prawidłowy wynik takiej operacji (zapisany w konwencji Little Endian):
+59 93 37 7d 1b 0e b7 c9 31
+
